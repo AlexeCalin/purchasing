@@ -47,6 +47,8 @@ const FUNCTION_URL='https://ewxydldbroiujkghltci.supabase.co/functions/v1/purcha
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_l8xZmArEzhrKP7IBY8XuoQ_PQFM7iIJ';
 const LOCAL_KEY='purchasing_requests_demo_v1';
 const CONTACTS_KEY='purchasing_contact_suggestions_v1';
+const SESSION_KEY='purchasing_active_tab_session_v1';
+const VIEW_KEY='purchasing_active_view_v1';
 let sessionPassword='';let records=[];let view='overview';let openedRequestId=null;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -63,15 +65,15 @@ function updateSuggestions(){
  for(const [id,key,recordKey] of pairs){const vals=new Set([...(h[key]||[]),...records.map(r=>r[recordKey]).filter(Boolean)]);$(id).replaceChildren(...[...vals].filter(v=>typeof v==='string'&&v.trim()).sort((a,b)=>a.localeCompare(b)).map(v=>{const o=document.createElement('option');o.value=v;return o}))}
 }
 function rememberContacts(r){const h=contactHistory();for(const [key,value] of [['names',r.requesterName],['requesterEmails',r.requesterEmail],['approverEmails',r.recipient]]){const v=String(value||'').trim();if(!v)continue;h[key]=[v,...(h[key]||[]).filter(x=>x.toLowerCase()!==v.toLowerCase())].slice(0,100)}try{localStorage.setItem(CONTACTS_KEY,JSON.stringify(h))}catch{}updateSuggestions()}
-function show(v){view=v;const listMode=v==='overview'||v==='archive'||v==='search';$('overviewView').classList.toggle('hidden',!listMode);$('requestView').classList.toggle('hidden',v!=='request');document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===v));if(listMode){$('listTitle').textContent=v==='archive'?'Archive':v==='search'?'Search results':'Overview';$('listSubtitle').textContent=v==='archive'?'Completed orders (Ordered + Received) and rejected requests marked Close rejected.':v==='search'?'Results from all active and archived purchase requests.':'Active purchase requests not yet archived.';refreshData()}else updateSuggestions();}
+function show(v){view=v;try{sessionStorage.setItem(VIEW_KEY,v)}catch{};const listMode=v==='overview'||v==='archive'||v==='search';$('overviewView').classList.toggle('hidden',!listMode);$('requestView').classList.toggle('hidden',v!=='request');document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===v));if(listMode){$('listTitle').textContent=v==='archive'?'Archive':v==='search'?'Search results':'Overview';$('listSubtitle').textContent=v==='archive'?'Completed orders (Ordered + Received) and rejected requests marked Close rejected.':v==='search'?'Results from all active and archived purchase requests.':'Active purchase requests not yet archived.';refreshData()}else updateSuggestions();}
 function isArchived(r){return Boolean((r.approvalStatus==='Rejected'&&r.closedRejectedAt)||(r.approvalStatus!=='Rejected'&&r.orderedAt&&r.receivedAt))}
 function runGlobalSearch(){const q=$('globalSearch').value.trim();if(q){show('search')}else{show('overview')}}
 $('globalSearchButton').onclick=runGlobalSearch;
 $('globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();runGlobalSearch()}});
 $('globalSearch').addEventListener('input',()=>{if(view==='search'){if(!$('globalSearch').value.trim())show('overview');else renderOverview()}});
-$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const pw=$('password').value;try{if(isCloud()){sessionPassword=pw;await api('verify')}else if(pw!=='Class2026')throw Error('Incorrect password');sessionPassword=pw;$('loginPage').classList.add('hidden');$('app').classList.remove('hidden');$('connectionLabel').textContent=isCloud()?'Supabase connected':'Local preview mode';show('overview')}catch(err){sessionPassword='';$('loginError').textContent=err.message}});
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const pw=$('password').value;try{if(isCloud()){sessionPassword=pw;await api('verify')}else if(pw!=='Class2026')throw Error('Incorrect password');sessionPassword=pw;try{sessionStorage.setItem(SESSION_KEY,pw)}catch{};$('loginPage').classList.add('hidden');$('app').classList.remove('hidden');$('connectionLabel').textContent=isCloud()?'Supabase connected':'Local preview mode';show('overview')}catch(err){sessionPassword='';$('loginError').textContent=err.message}});
 $('showLoginPassword').onchange=()=>{$('password').type=$('showLoginPassword').checked?'text':'password'};
-$('logout').onclick=()=>{sessionPassword='';records=[];$('password').value='';$('app').classList.add('hidden');$('loginPage').classList.remove('hidden')};document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>show(b.dataset.view));$('refresh').onclick=refreshData;$('search').oninput=renderOverview;$('filterCurrency').onchange=renderOverview;
+$('logout').onclick=()=>{try{sessionStorage.removeItem(SESSION_KEY);sessionStorage.removeItem(VIEW_KEY)}catch{};sessionPassword='';records=[];$('password').value='';$('app').classList.add('hidden');$('loginPage').classList.remove('hidden')};document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>show(b.dataset.view));$('refresh').onclick=refreshData;$('search').oninput=renderOverview;$('filterCurrency').onchange=renderOverview;
 $('reportMonth').value=new Date().toLocaleDateString('en-CA').slice(0,7);
 $('reportMonth').addEventListener('change',renderMonthly);
 for(const id of ['filterRequester','filterApprover','filterPurpose','filterMonth','filterOrdered','filterReceived','filterCloseRejected'])$(id).addEventListener('change',renderOverview);
@@ -164,4 +166,26 @@ for(const id of ['fxAmount','fxFrom','fxTo'])$(id).addEventListener('input',calc
 $('fxRefresh').onclick=()=>{fxData=null;loadFx()};
 loadFx();
 
+
+// Restore the authenticated tab after F5, verifying the saved credential with Supabase first.
+// sessionStorage lasts only for this browser tab; Log out removes it.
+(async function restoreTabAfterRefresh(){
+ let saved='';let savedView='overview';
+ try{saved=sessionStorage.getItem(SESSION_KEY)||'';savedView=sessionStorage.getItem(VIEW_KEY)||'overview'}catch{}
+ if(!saved)return;
+ try{
+  sessionPassword=saved;
+  if(isCloud())await api('verify');
+  else if(saved!=='Class2026')throw Error('Session invalid');
+  $('loginPage').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('connectionLabel').textContent=isCloud()?'Supabase connected':'Local preview mode';
+  show(['overview','archive','request'].includes(savedView)?savedView:'overview');
+ }catch(e){
+  sessionPassword='';
+  try{sessionStorage.removeItem(SESSION_KEY);sessionStorage.removeItem(VIEW_KEY)}catch{}
+  $('loginPage').classList.remove('hidden');
+  $('app').classList.add('hidden');
+ }
+})();
 </script></body></html>
