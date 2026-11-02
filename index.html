@@ -77,6 +77,12 @@ body{background:#f3f7fa}
 #overviewView .data .ordered-check:disabled,#overviewView .data .received-check:disabled,#overviewView .data .close-rejected-check:disabled{cursor:not-allowed;opacity:.35}
 @media(max-width:1050px){.reporting-side-by-side{grid-template-columns:1fr}}
 @media(max-width:640px){.nav{padding:8px;gap:5px}.nav button{flex:1 1 130px;padding:10px 6px}.main{padding:12px 8px}.reporting-side-by-side>.panel{padding:14px}.top{padding:12px}}
+</style><style>
+/* Backup CSV: pink button, without changing functionality */
+#backupCsv{background:#ec4899!important;color:#fff!important;border:1px solid #db2777!important;font-weight:700}
+#backupCsv:hover{background:#db2777!important}
+#backupCsv:focus-visible{outline:3px solid #f9a8d4;outline-offset:2px}
+#backupCsv:disabled{opacity:.6;cursor:wait}
 </style></head><body>
 <div id="loginPage" class="login"><form id="loginForm" class="login-card"><h1>Purchasing</h1><p>Purchase Request Management</p><label class="field">Password<input id="password" type="password" required autocomplete="current-password" placeholder="Enter password"><label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:12px;color:#355c70;font-weight:400"><input id="showLoginPassword" type="checkbox" style="width:auto"> Show password</label></label><p id="loginError" class="small" style="color:#a32727"></p><button class="primary" style="width:100%">Log in</button><a href="https://alexecalin.github.io/" class="secondary" style="display:block;text-align:center;text-decoration:none;margin-top:12px;font-weight:700">← Back to Main Portal</a><p class="small">Authorized personnel only</p></form></div>
 <div id="app" class="app hidden"><header class="top"><div class="top-left"><div><div class="brand">Purchasing</div><div class="small">Purchase Request Management</div></div><div class="fx-inline" aria-label="Currency converter">
