@@ -9,7 +9,7 @@ body{font:15px Arial;background:#f1f6fa;color:#193d52;margin:0}
 main{max-width:950px;margin:35px auto;padding:24px;background:white;border-radius:12px;box-shadow:0 5px 30px #1233}
 h1{color:#125d84}
 button{padding:11px 18px;border:0;border-radius:5px;cursor:pointer;margin:5px;background:#1365a1;color:white}
-button:disabled{opacity:.5}button.reject{background:#ae3333}
+button:disabled{opacity:.5}button.reject{background:#ae3333}button.redirect{background:#7652b7}input[type=email]{width:100%;max-width:480px;padding:11px;border:1px solid #b5cbd8;border-radius:5px;box-sizing:border-box}.redirect-panel{margin-top:15px;padding:16px;border:1px solid #c9b9eb;background:#f8f5ff;border-radius:8px}.redirect-panel label{display:block;margin-bottom:8px;font-weight:bold}
 .table-wrap{overflow-x:auto}
 table{border-collapse:collapse;width:100%;min-width:720px}
 td,th{padding:9px;border-bottom:1px solid #ddd;text-align:left}
@@ -35,12 +35,14 @@ textarea{width:100%;min-height:80px;box-sizing:border-box}
 <h3>Offers</h3>
 <div id="files"></div>
 <h3>Decision</h3>
-<p id="state"></p>
+<p id="state"></p><p id="approverInfo"></p>
 <div id="controls">
 <label>Decision note (optional)<textarea id="note" maxlength="2000"></textarea></label>
 <p>Review the information and confirm your decision below.</p>
 <button id="approve">Confirm Approve</button>
 <button id="reject" class="reject">Confirm Reject</button>
+<button id="redirect" class="redirect" type="button">Redirect to Other Approver</button>
+<div id="redirectPanel" class="redirect-panel hide"><label for="newApproverEmail">New approver email</label><input id="newApproverEmail" type="email" maxlength="254" autocomplete="email" placeholder="name@company.com" required><p>The current approval link will be invalidated immediately after confirmation. A new unique link will be sent to the new approver.</p><button id="confirmRedirect" class="redirect" type="button">Confirm Redirect &amp; Send Email</button><button id="cancelRedirect" type="button">Cancel</button></div>
 </div></div></main>
 <script>
 const fn='https://ewxydldbroiujkghltci.supabase.co/functions/v1/purchasing-admin',key='sb_publishable_l8xZmArEzhrKP7IBY8XuoQ_PQFM7iIJ',token=new URLSearchParams(location.search).get('token')||'';
@@ -59,9 +61,25 @@ $('reason').textContent=r.supplierReason;
 for(const f of r.attachments){const b=document.createElement('button');b.textContent='Open offer: '+f.name;b.onclick=async()=>{try{const d=await api('reviewFile',{index:f.index});window.open(d.url,'_blank','noopener,noreferrer')}catch(e){alert(e.message)}};$('files').append(b)}
 if(!r.attachments.length)$('files').textContent='No offers attached';
 $('state').textContent=d.status;
+$('approverInfo').textContent='Original approver: '+(r.originalApprover||'—')+' | Current approver: '+(r.currentApprover||'—');
 if(d.status!=='Pending Approval')$('controls').classList.add('hide');
 }catch(e){$('notice').textContent=e.message}}
-async function decide(value){if(!confirm('Confirm '+value+'? This decision cannot be undone.'))return;$('approve').disabled=$('reject').disabled=true;try{const d=await api('decide',{decision:value,note:$('note').value});$('state').textContent=d.status;$('controls').classList.add('hide');$('notice').textContent='Decision recorded successfully.'}catch(e){alert(e.message);$('approve').disabled=$('reject').disabled=false}}
+async function decide(value){if(!confirm('Confirm '+value+'? This decision cannot be undone.'))return;$('approve').disabled=$('reject').disabled=$('redirect').disabled=true;try{const d=await api('decide',{decision:value,note:$('note').value});$('state').textContent=d.status;
+$('approverInfo').textContent='Original approver: '+(r.originalApprover||'—')+' | Current approver: '+(r.currentApprover||'—');$('controls').classList.add('hide');$('notice').textContent='Decision recorded successfully.'}catch(e){alert(e.message);$('approve').disabled=$('reject').disabled=$('redirect').disabled=false}}
+$('redirect').onclick=()=>{$('redirectPanel').classList.remove('hide');$('newApproverEmail').focus()};
+$('cancelRedirect').onclick=()=>{$('redirectPanel').classList.add('hide')};
+$('confirmRedirect').onclick=async()=>{
+ const input=$('newApproverEmail'),email=input.value.trim();
+ if(!input.checkValidity()){input.reportValidity();return}
+ if(!confirm('Redirect this request to '+email+'? Your current link will be disabled immediately.'))return;
+ const buttons=['approve','reject','redirect','confirmRedirect'];buttons.forEach(id=>$(id).disabled=true);
+ try{
+  const d=await api('redirectByApprover',{newApproverEmail:email});
+  $('controls').classList.add('hide');
+  $('state').textContent='Redirected to '+email;
+  $('notice').textContent=d.emailSent?'Request redirected successfully. The previous approval link is now inactive and the new approver was emailed.':'Request redirected and old link disabled, but email delivery failed. Please contact the Purchasing administrator to resolve delivery.';
+ }catch(e){alert('Redirect failed: '+e.message);buttons.forEach(id=>$(id).disabled=false)}
+};
 $('approve').onclick=()=>decide('Approved');$('reject').onclick=()=>decide('Rejected');load();
 </script>
 </body>
