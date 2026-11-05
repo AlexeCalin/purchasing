@@ -42,9 +42,17 @@ textarea{width:100%;min-height:80px;box-sizing:border-box}
 <button id="approve">Confirm Approve</button>
 <button id="reject" class="reject">Confirm Reject</button>
 <button id="redirect" class="redirect" type="button">Redirect to Other Approver</button>
-<div id="redirectPanel" class="redirect-panel hide"><label for="newApproverEmail">New approver email</label><input id="newApproverEmail" type="email" maxlength="254" autocomplete="email" placeholder="name@company.com" required><p>The current approval link will be invalidated immediately after confirmation. A new unique link will be sent to the new approver.</p><button id="confirmRedirect" class="redirect" type="button">Confirm Redirect &amp; Send Email</button><button id="cancelRedirect" type="button">Cancel</button></div>
+<div id="redirectPanel" class="redirect-panel hide"><label for="newApproverEmail">New approver email</label><input list="redirectEmailOptions" id="newApproverEmail" type="email" maxlength="254" autocomplete="email" placeholder="name@company.com" required><datalist id="redirectEmailOptions"></datalist><button type="button" class="secondary" id="removeSavedRedirectEmail" style="margin:8px 0">Delete saved email</button><p style="font-size:11px;color:#607b8b">Saved addresses are synchronized between devices. Deleting an address removes it from the shared list.</p><p>The current approval link will be invalidated immediately after confirmation. A new unique link will be sent to the new approver.</p><button id="confirmRedirect" class="redirect" type="button">Confirm Redirect &amp; Send Email</button><button id="cancelRedirect" type="button">Cancel</button></div>
 </div></div></main>
 <script>
+// Shared approver directory synchronized through Supabase.
+let redirectContacts=[];
+function savedRedirectEmails(){return redirectContacts}
+function renderRedirectEmails(){const list=document.getElementById('redirectEmailOptions');if(!list)return;list.replaceChildren(...redirectContacts.map(email=>{const o=document.createElement('option');o.value=email;return o}))}
+async function loadRedirectEmails(){try{const data=await api('listRedirectContacts');redirectContacts=Array.isArray(data.emails)?data.emails:[];renderRedirectEmails()}catch(e){console.error('Could not synchronize approver emails',e)}}
+function rememberRedirectEmail(email){const v=email.trim().toLowerCase();if(!redirectContacts.includes(v))redirectContacts.push(v);redirectContacts.sort();renderRedirectEmails()}
+async function deleteSavedRedirectEmail(inputId){const input=document.getElementById(inputId),email=input.value.trim().toLowerCase();if(!email){alert('Select or enter a saved email first.');return}if(!redirectContacts.includes(email)){alert('This address is not in the saved list.');return}if(!confirm('Delete '+email+' from the shared approver list on all devices?'))return;try{await api('deleteRedirectContact',{email});redirectContacts=redirectContacts.filter(x=>x!==email);input.value='';renderRedirectEmails()}catch(e){alert('Could not delete saved email: '+e.message)}}
+
 const fn='https://ewxydldbroiujkghltci.supabase.co/functions/v1/purchasing-admin',key='sb_publishable_l8xZmArEzhrKP7IBY8XuoQ_PQFM7iIJ',token=new URLSearchParams(location.search).get('token')||'';
 const $=id=>document.getElementById(id);
 async function api(action,other={}){const r=await fetch(fn,{method:'POST',headers:{'Content-Type':'application/json',apikey:key},body:JSON.stringify({action,token,...other})});const d=await r.json();if(!r.ok)throw Error(d.error||'Server error');return d}
@@ -66,7 +74,7 @@ if(d.status!=='Pending Approval')$('controls').classList.add('hide');
 }catch(e){$('notice').textContent=e.message}}
 async function decide(value){if(!confirm('Confirm '+value+'? This decision cannot be undone.'))return;$('approve').disabled=$('reject').disabled=$('redirect').disabled=true;try{const d=await api('decide',{decision:value,note:$('note').value});$('state').textContent=d.status;
 $('approverInfo').textContent='Original approver: '+(r.originalApprover||'—')+' | Current approver: '+(r.currentApprover||'—');$('controls').classList.add('hide');$('notice').textContent='Decision recorded successfully.'}catch(e){alert(e.message);$('approve').disabled=$('reject').disabled=$('redirect').disabled=false}}
-$('redirect').onclick=()=>{$('redirectPanel').classList.remove('hide');$('newApproverEmail').focus()};
+$('redirect').onclick=()=>{$('redirectPanel').classList.remove('hide');loadRedirectEmails();$('newApproverEmail').focus()};
 $('cancelRedirect').onclick=()=>{$('redirectPanel').classList.add('hide')};
 $('confirmRedirect').onclick=async()=>{
  const input=$('newApproverEmail'),email=input.value.trim();
@@ -74,13 +82,15 @@ $('confirmRedirect').onclick=async()=>{
  if(!confirm('Redirect this request to '+email+'? Your current link will be disabled immediately.'))return;
  const buttons=['approve','reject','redirect','confirmRedirect'];buttons.forEach(id=>$(id).disabled=true);
  try{
-  const d=await api('redirectByApprover',{newApproverEmail:email});
+  const d=await api('redirectByApprover',{newApproverEmail:email});rememberRedirectEmail(email);
   $('controls').classList.add('hide');
   $('state').textContent='Redirected to '+email;
   $('notice').textContent=d.emailSent?'Request redirected successfully. The previous approval link is now inactive and the new approver was emailed.':'Request redirected and old link disabled, but email delivery failed. Please contact the Purchasing administrator to resolve delivery.';
  }catch(e){alert('Redirect failed: '+e.message);buttons.forEach(id=>$(id).disabled=false)}
 };
 $('approve').onclick=()=>decide('Approved');$('reject').onclick=()=>decide('Rejected');load();
+document.getElementById('removeSavedRedirectEmail').onclick=()=>deleteSavedRedirectEmail('newApproverEmail');
+renderRedirectEmails();
 </script>
 </body>
 </html>

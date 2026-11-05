@@ -115,8 +115,17 @@ body{background:#f3f7fa}
 <label style="display:flex;align-items:center;gap:9px;margin:9px 0;font-size:13px"><input type="checkbox" name="notifyGeorge" style="width:17px;height:17px"> george.popa@classfurn.ro</label>
 </div><div id="submitMessage" class="notice hidden"></div><div class="actions"><button id="submitButton" class="primary" type="submit">Submit Request</button></div></form></div></section>
 </main></div></div>
-<div id="redirectOverlay" class="redirect-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="redirectTitle"><div class="redirect-card"><h2 id="redirectTitle" class="page-title">Redirect to Other Approver</h2><p class="sub">Only the new approver email can be edited. The previous approval link will stop working immediately.</p><div id="redirectSummary" class="redirect-summary"></div><form id="redirectForm"><label class="field" style="margin-top:18px">New Approver Email *<input id="redirectEmail" type="email" required maxlength="254" autocomplete="off" placeholder="new.approver@company.com"></label><div id="redirectMessage" class="notice hidden" role="status"></div><div class="redirect-actions"><button class="secondary" id="redirectCancel" type="button">Cancel</button><button class="primary" id="redirectSubmit" type="submit">Confirm Redirect &amp; Send Email</button></div></form></div></div><script>
+<div id="redirectOverlay" class="redirect-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="redirectTitle"><div class="redirect-card"><h2 id="redirectTitle" class="page-title">Redirect to Other Approver</h2><p class="sub">Only the new approver email can be edited. The previous approval link will stop working immediately.</p><div id="redirectSummary" class="redirect-summary"></div><form id="redirectForm"><label class="field" style="margin-top:18px">New Approver Email *<input list="redirectEmailOptions" id="redirectEmail" type="email" required maxlength="254" autocomplete="off" placeholder="new.approver@company.com"><datalist id="redirectEmailOptions"></datalist><button type="button" class="secondary" id="removeSavedRedirectEmail" style="margin:8px 0">Delete saved email</button><p style="font-size:11px;color:#607b8b">Saved addresses are synchronized between devices. Deleting an address removes it from the shared list.</p></label><div id="redirectMessage" class="notice hidden" role="status"></div><div class="redirect-actions"><button class="secondary" id="redirectCancel" type="button">Cancel</button><button class="primary" id="redirectSubmit" type="submit">Confirm Redirect &amp; Send Email</button></div></form></div></div><script>
 'use strict';
+// Saved approver addresses are local to this browser; no approval token is stored.
+// Shared approver directory synchronized through Supabase.
+let redirectContacts=[];
+function savedRedirectEmails(){return redirectContacts}
+function renderRedirectEmails(){const list=document.getElementById('redirectEmailOptions');if(!list)return;list.replaceChildren(...redirectContacts.map(email=>{const o=document.createElement('option');o.value=email;return o}))}
+async function loadRedirectEmails(){try{const data=await api('listRedirectContacts');redirectContacts=Array.isArray(data.emails)?data.emails:[];renderRedirectEmails()}catch(e){console.error('Could not synchronize approver emails',e)}}
+function rememberRedirectEmail(email){const v=email.trim().toLowerCase();if(!redirectContacts.includes(v))redirectContacts.push(v);redirectContacts.sort();renderRedirectEmails()}
+async function deleteSavedRedirectEmail(inputId){const input=document.getElementById(inputId),email=input.value.trim().toLowerCase();if(!email){alert('Select or enter a saved email first.');return}if(!redirectContacts.includes(email)){alert('This address is not in the saved list.');return}if(!confirm('Delete '+email+' from the shared approver list on all devices?'))return;try{await api('deleteRedirectContact',{email});redirectContacts=redirectContacts.filter(x=>x!==email);input.value='';renderRedirectEmails()}catch(e){alert('Could not delete saved email: '+e.message)}}
+
 // Set this URL after deploying the Supabase Edge Function named purchasing-admin.
 const FUNCTION_URL='https://ewxydldbroiujkghltci.supabase.co/functions/v1/purchasing-admin';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_l8xZmArEzhrKP7IBY8XuoQ_PQFM7iIJ';
@@ -146,7 +155,7 @@ function runGlobalSearch(){const q=$('globalSearch').value.trim();if(q){show('se
 $('globalSearchButton').onclick=runGlobalSearch;
 $('globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();runGlobalSearch()}});
 $('globalSearch').addEventListener('input',()=>{if(view==='search'){if(!$('globalSearch').value.trim())show('overview');else renderOverview()}});
-$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const pw=$('password').value;try{if(isCloud()){sessionPassword=pw;await api('verify')}else if(pw!=='Class2026')throw Error('Incorrect password');sessionPassword=pw;try{sessionStorage.setItem(SESSION_KEY,pw)}catch{};$('loginPage').classList.add('hidden');$('app').classList.remove('hidden');$('connectionLabel').textContent=isCloud()?'Supabase connected':'Local preview mode';show('overview')}catch(err){sessionPassword='';$('loginError').textContent=err.message}});
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const pw=$('password').value;try{if(isCloud()){sessionPassword=pw;await api('verify')}else if(pw!=='Class2026')throw Error('Incorrect password');sessionPassword=pw;try{sessionStorage.setItem(SESSION_KEY,pw)}catch{};$('loginPage').classList.add('hidden');$('app').classList.remove('hidden');$('connectionLabel').textContent=isCloud()?'Supabase connected':'Local preview mode';loadRedirectEmails();show('overview')}catch(err){sessionPassword='';$('loginError').textContent=err.message}});
 $('showLoginPassword').onchange=()=>{$('password').type=$('showLoginPassword').checked?'text':'password'};
 $('logout').onclick=()=>{try{sessionStorage.removeItem(SESSION_KEY);sessionStorage.removeItem(VIEW_KEY)}catch{};sessionPassword='';records=[];$('password').value='';$('app').classList.add('hidden');$('loginPage').classList.remove('hidden')};document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>show(b.dataset.view));$('refresh').onclick=refreshData;$('search').oninput=renderOverview;$('filterCurrency').onchange=renderOverview;
 $('reportMonth').value=new Date().toLocaleDateString('en-CA').slice(0,7);
@@ -183,7 +192,7 @@ function openRedirect(id){
  add('Original approver',r.originalApprover||r.recipient);add('Current approver',r.recipient);
  add('Previous approvers',(r.approverHistory||[]).map(x=>x.email).join(' → ')||'None');
  add('Items',(r.items||[]).map(x=>x.name+' × '+x.quantity).join('; '));
- $('redirectEmail').value='';clearMsg('redirectMessage');$('redirectOverlay').classList.remove('hidden');$('redirectEmail').focus();
+ $('redirectEmail').value='';loadRedirectEmails();clearMsg('redirectMessage');$('redirectOverlay').classList.remove('hidden');$('redirectEmail').focus();
 }
 function closeRedirect(){$('redirectOverlay').classList.add('hidden');redirectRequestId=null}
 $('redirectCancel').onclick=closeRedirect;
@@ -196,7 +205,7 @@ $('redirectForm').onsubmit=async e=>{
  const btn=$('redirectSubmit');btn.disabled=true;btn.textContent='Redirecting...';
  try{
   if(!isCloud())throw Error('Supabase connection required');
-  const result=await api('redirectApprover',{id,newApproverEmail:email});
+  const result=await api('redirectApprover',{id,newApproverEmail:email});rememberRedirectEmail(email);
   closeRedirect();await refreshData();
   msg('overviewMessage',result.emailSent?'Approver changed. Old approval link revoked; new approval email sent to '+email+'.':'Approver changed and old link revoked, but the new email could not be sent. Redirect again to issue another link.',''+(result.emailSent?'ok':'error'));
  }catch(err){msg('redirectMessage','Redirect failed: '+err.message,'error')}
@@ -291,7 +300,7 @@ setInterval(()=>{if(!document.hidden)loadFx()},30*60*1000);
   $('loginPage').classList.add('hidden');
   $('app').classList.remove('hidden');
   $('connectionLabel').textContent=isCloud()?'Supabase connected':'Local preview mode';
-  show(['overview','archive','request'].includes(savedView)?savedView:'overview');
+  loadRedirectEmails();show(['overview','archive','request'].includes(savedView)?savedView:'overview');
  }catch(e){
   sessionPassword='';
   try{sessionStorage.removeItem(SESSION_KEY);sessionStorage.removeItem(VIEW_KEY)}catch{}
@@ -318,5 +327,7 @@ function exportExcel(){const rows=exportRows();const files=[['[Content_Types].xm
 async function backup(kind){const btn=$(kind==='csv'?'backupCsv':'backupExcel');const original=btn.textContent;btn.disabled=true;btn.textContent='Preparing...';try{if(isCloud()){const result=await api('list');records=result.requests||[];updateOverviewFilters();if(view!=='request')renderOverview()}if(!records.length){alert('No Purchase Requests available to export.');return}if(kind==='csv')exportCSV();else exportExcel()}catch(e){alert('Backup failed: '+e.message)}finally{btn.disabled=false;btn.textContent=original}}
 $('backupCsv').onclick=()=>backup('csv');$('backupExcel').onclick=()=>backup('excel');
 
+document.getElementById('removeSavedRedirectEmail').onclick=()=>deleteSavedRedirectEmail('redirectEmail');
+renderRedirectEmails();
 </script></body></html>
 ```
