@@ -111,7 +111,17 @@ table.items td:first-child{width:auto}
 
 table.items .item-vat-ron{min-width:0;white-space:normal;overflow-wrap:anywhere}
 </style>
-</head><body>
+<style id="required-fields-highlight">
+/* Editable fields are gently tinted; required fields have a slightly stronger outline. */
+#requestForm input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([readonly]),
+#requestForm textarea,
+#requestForm select{background:rgba(54,151,224,.075)!important;border:1px solid rgba(46,131,201,.40)!important;border-radius:5px;color:#183b50}
+#requestForm input[required]:not([type="radio"]),#requestForm textarea[required],#requestForm select[required]{background:rgba(54,151,224,.11)!important;border-color:rgba(40,126,204,.55)!important}
+#requestForm .items td input:not([type="checkbox"]):not([readonly]),#requestForm .items td textarea{background:rgba(54,151,224,.075)!important;min-height:32px}
+#requestForm input:focus,#requestForm textarea:focus,#requestForm select:focus{outline:2px solid rgba(45,133,213,.5);outline-offset:1px}
+#requestForm input[readonly]{background:#f1f5f8!important}
+#requestForm .supplier-selected input:not([type="checkbox"]),#requestForm .supplier-selected textarea{background:transparent!important}
+</style></head><body>
 <div id="loginPage" class="login"><form id="loginForm" class="login-card"><h1>Purchasing</h1><p>Purchase Request Management</p><label class="field">Password<input id="password" type="password" required autocomplete="current-password" placeholder="Enter password"><label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:12px;color:#355c70;font-weight:400"><input id="showLoginPassword" type="checkbox" style="width:auto"> Show password</label></label><p id="loginError" class="small" style="color:#a32727"></p><button class="primary" style="width:100%">Log in</button><a href="https://alexecalin.github.io/" class="secondary" style="display:block;text-align:center;text-decoration:none;margin-top:12px;font-weight:700">← Back to Main Portal</a><p class="small">Authorized personnel only</p></form></div>
 <div id="app" class="app hidden"><header class="top"><div class="top-left"><div><div class="brand">Purchasing</div><div class="small">Purchase Request Management</div></div><div class="fx-inline" aria-label="Currency converter">
 <label>Amount<input id="fxAmount" type="number" min="0" step="any" value="100" aria-label="Amount to convert"></label>
