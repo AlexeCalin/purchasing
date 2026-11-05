@@ -6,13 +6,13 @@
 <title>Purchasing Approval</title>
 <style>
 body{font:15px Arial;background:#f1f6fa;color:#193d52;margin:0}
-main{max-width:950px;margin:35px auto;padding:24px;background:white;border-radius:12px;box-shadow:0 5px 30px #1233}
+main{max-width:1280px;margin:35px auto;padding:24px;background:white;border-radius:12px;box-shadow:0 5px 30px #1233}
 h1{color:#125d84}
 button{padding:11px 18px;border:0;border-radius:5px;cursor:pointer;margin:5px;background:#1365a1;color:white}
 button:disabled{opacity:.5}button.reject{background:#ae3333}button.redirect{background:#7652b7}input[type=email]{width:100%;max-width:480px;padding:11px;border:1px solid #b5cbd8;border-radius:5px;box-sizing:border-box}.redirect-panel{margin-top:15px;padding:16px;border:1px solid #c9b9eb;background:#f8f5ff;border-radius:8px}.redirect-panel label{display:block;margin-bottom:8px;font-weight:bold}
 .table-wrap{overflow-x:auto}
 table{border-collapse:collapse;width:100%;min-width:720px}
-td,th{padding:9px;border-bottom:1px solid #ddd;text-align:left}
+td,th{padding:9px;border:1px solid #c6dbe6;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#dcebf6;color:#134d70;white-space:normal}tbody tr:nth-child(even){background:#f3f9fd}tbody tr.supplier-selected{background:#c7f1d2!important;color:#14552b;font-weight:700}tbody tr.supplier-alternative:not(.supplier-selected){background:#f0f6fb}td.number{font-weight:700;white-space:nowrap}td.money{text-align:right;white-space:nowrap} .selected-legend{font-size:13px;color:#236943;margin:10px 0}
 textarea{width:100%;min-height:80px;box-sizing:border-box}
 #notice{padding:12px;background:#edf5fb;margin:15px 0;white-space:pre-wrap}
 .hide{display:none}
@@ -26,9 +26,9 @@ textarea{width:100%;min-height:80px;box-sizing:border-box}
 <h2 id="id"></h2>
 <p id="meta"></p>
 <div class="table-wrap"><table>
-<thead><tr><th>Item</th><th>Necessary for</th><th>Qty</th><th>Unit price</th><th>Currency</th><th>Chosen Supplier</th></tr></thead>
+<thead><tr><th>#</th><th>Item Name</th><th>Necessary for</th><th>No. of pcs</th><th>Price/Pcs Without VAT</th><th>Price/Pcs With VAT</th><th>Total price Without VAT</th><th>Total price With VAT</th><th>Currency</th><th>Supplier / Selected</th></tr></thead>
 <tbody id="items"></tbody>
-</table></div>
+</table></div><p class="selected-legend">Green row = supplier selected by the requester. Alternatives are numbered 1.1, 1.2, etc.</p>
 <h3 id="total"></h3>
 <h3>Selected supplier and justification</h3>
 <p id="reason"></p>
@@ -42,16 +42,15 @@ textarea{width:100%;min-height:80px;box-sizing:border-box}
 <button id="approve">Confirm Approve</button>
 <button id="reject" class="reject">Confirm Reject</button>
 <button id="redirect" class="redirect" type="button">Redirect to Other Approver</button>
-<div id="redirectPanel" class="redirect-panel hide"><label for="newApproverEmail">New approver email</label><input list="redirectEmailOptions" id="newApproverEmail" type="email" maxlength="254" autocomplete="email" placeholder="name@company.com" required><datalist id="redirectEmailOptions"></datalist><button type="button" class="secondary" id="removeSavedRedirectEmail" style="margin:8px 0">Delete saved email</button><p style="font-size:11px;color:#607b8b">Saved addresses are synchronized between devices. Deleting an address removes it from the shared list.</p><p>The current approval link will be invalidated immediately after confirmation. A new unique link will be sent to the new approver.</p><button id="confirmRedirect" class="redirect" type="button">Confirm Redirect &amp; Send Email</button><button id="cancelRedirect" type="button">Cancel</button></div>
+<div id="redirectPanel" class="redirect-panel hide"><label for="newApproverEmail">New approver email</label><input list="redirectEmailOptions" id="newApproverEmail" type="email" maxlength="254" autocomplete="email" placeholder="name@company.com" required><datalist id="redirectEmailOptions"></datalist><button type="button" class="secondary" id="removeSavedRedirectEmail" style="margin:8px 0">Delete saved email</button><p style="font-size:11px;color:#607b8b">Saved addresses are available on this browser only. Select an address from suggestions to delete it.</p><p>The current approval link will be invalidated immediately after confirmation. A new unique link will be sent to the new approver.</p><button id="confirmRedirect" class="redirect" type="button">Confirm Redirect &amp; Send Email</button><button id="cancelRedirect" type="button">Cancel</button></div>
 </div></div></main>
 <script>
-// Shared approver directory synchronized through Supabase.
-let redirectContacts=[];
-function savedRedirectEmails(){return redirectContacts}
-function renderRedirectEmails(){const list=document.getElementById('redirectEmailOptions');if(!list)return;list.replaceChildren(...redirectContacts.map(email=>{const o=document.createElement('option');o.value=email;return o}))}
-async function loadRedirectEmails(){try{const data=await api('listRedirectContacts');redirectContacts=Array.isArray(data.emails)?data.emails:[];renderRedirectEmails()}catch(e){console.error('Could not synchronize approver emails',e)}}
-function rememberRedirectEmail(email){const v=email.trim().toLowerCase();if(!redirectContacts.includes(v))redirectContacts.push(v);redirectContacts.sort();renderRedirectEmails()}
-async function deleteSavedRedirectEmail(inputId){const input=document.getElementById(inputId),email=input.value.trim().toLowerCase();if(!email){alert('Select or enter a saved email first.');return}if(!redirectContacts.includes(email)){alert('This address is not in the saved list.');return}if(!confirm('Delete '+email+' from the shared approver list on all devices?'))return;try{await api('deleteRedirectContact',{email});redirectContacts=redirectContacts.filter(x=>x!==email);input.value='';renderRedirectEmails()}catch(e){alert('Could not delete saved email: '+e.message)}}
+// Saved approver addresses are local to this browser; no approval token is stored.
+const REDIRECT_CONTACTS_KEY='purchasing_redirect_approver_emails_v1';
+function savedRedirectEmails(){try{const a=JSON.parse(localStorage.getItem(REDIRECT_CONTACTS_KEY)||'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)):[]}catch{return []}}
+function renderRedirectEmails(){const list=document.getElementById('redirectEmailOptions');if(!list)return;list.replaceChildren(...savedRedirectEmails().map(email=>{const option=document.createElement('option');option.value=email;return option}));}
+function rememberRedirectEmail(email){const normalized=email.trim().toLowerCase();const emails=[normalized,...savedRedirectEmails().filter(x=>x!==normalized)].slice(0,100);try{localStorage.setItem(REDIRECT_CONTACTS_KEY,JSON.stringify(emails))}catch{}renderRedirectEmails()}
+function deleteSavedRedirectEmail(inputId){const input=document.getElementById(inputId);const email=input.value.trim().toLowerCase();if(!email){alert('Select or enter a saved email address first.');return}const emails=savedRedirectEmails();if(!emails.includes(email)){alert('This address is not in the saved list.');return}if(!confirm('Remove '+email+' from saved approver addresses?'))return;try{localStorage.setItem(REDIRECT_CONTACTS_KEY,JSON.stringify(emails.filter(x=>x!==email)))}catch{}input.value='';renderRedirectEmails()}
 
 const fn='https://ewxydldbroiujkghltci.supabase.co/functions/v1/purchasing-admin',key='sb_publishable_l8xZmArEzhrKP7IBY8XuoQ_PQFM7iIJ',token=new URLSearchParams(location.search).get('token')||'';
 const $=id=>document.getElementById(id);
@@ -63,7 +62,29 @@ $('content').classList.remove('hide');
 $('notice').textContent='This approval link expires on '+new Date(d.expiresAt).toLocaleString()+'. Keep it confidential.';
 $('id').textContent=r.id;
 $('meta').textContent='Requester: '+r.requesterName+' | Created: '+new Date(r.created).toLocaleString();
-for(const x of r.items){const tr=document.createElement('tr');[x.name,x.purpose,x.quantity,x.unitPrice,r.currency,x.chosenSupplier||'—'].forEach(v=>cell(tr,v));$('items').append(tr)}
+$('items').replaceChildren();
+const groups=new Map();let fallback=0;
+for(const x of (r.items||[])){
+ const group=Number.isInteger(Number(x.group))&&Number(x.group)>0?Number(x.group):++fallback;
+ if(!groups.has(group))groups.set(group,[]);
+ groups.get(group).push(x);
+}
+const money=v=>Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+for(const [group,options] of [...groups].sort((a,b)=>a[0]-b[0])){
+ options.sort((a,b)=>Number(a.variant||0)-Number(b.variant||0));
+ const hasExplicitSelection=options.some(x=>x.selected===true);
+ for(let i=0;i<options.length;i++){
+  const x=options[i],variant=Number(x.variant||0),qty=Number(x.quantity||0),unit=Number(x.unitPrice||0);
+  const chosen=x.selected===true||(!hasExplicitSelection&&options.length===1);
+  const tr=document.createElement('tr');
+  if(x.selected===true)tr.classList.add('supplier-selected');
+  if(variant>0)tr.classList.add('supplier-alternative');
+  const number=variant>0?group+'.'+variant:String(group);
+  const values=[number,x.name||'—',x.purpose||'—',qty,money(unit),money(unit*1.21),money(qty*unit),money(qty*unit*1.21),r.currency||'—',(x.chosenSupplier||'—')+(x.selected===true?' ✓ SELECTED':'')];
+  values.forEach((v,j)=>{const td=document.createElement('td');td.textContent=String(v);if(j===0)td.className='number';if(j>=4&&j<=7)td.className='money';tr.append(td)});
+  $('items').append(tr);
+ }
+}
 $('total').textContent='Total excluding VAT: '+Number(r.totalPrice).toFixed(2)+' '+r.currency;
 $('reason').textContent=r.supplierReason;
 for(const f of r.attachments){const b=document.createElement('button');b.textContent='Open offer: '+f.name;b.onclick=async()=>{try{const d=await api('reviewFile',{index:f.index});window.open(d.url,'_blank','noopener,noreferrer')}catch(e){alert(e.message)}};$('files').append(b)}
@@ -74,7 +95,7 @@ if(d.status!=='Pending Approval')$('controls').classList.add('hide');
 }catch(e){$('notice').textContent=e.message}}
 async function decide(value){if(!confirm('Confirm '+value+'? This decision cannot be undone.'))return;$('approve').disabled=$('reject').disabled=$('redirect').disabled=true;try{const d=await api('decide',{decision:value,note:$('note').value});$('state').textContent=d.status;
 $('controls').classList.add('hide');$('notice').textContent='Decision recorded successfully.'}catch(e){alert(e.message);$('approve').disabled=$('reject').disabled=$('redirect').disabled=false}}
-$('redirect').onclick=()=>{$('redirectPanel').classList.remove('hide');loadRedirectEmails();$('newApproverEmail').focus()};
+$('redirect').onclick=()=>{$('redirectPanel').classList.remove('hide');renderRedirectEmails();$('newApproverEmail').focus()};
 $('cancelRedirect').onclick=()=>{$('redirectPanel').classList.add('hide')};
 $('confirmRedirect').onclick=async()=>{
  const input=$('newApproverEmail'),email=input.value.trim();
