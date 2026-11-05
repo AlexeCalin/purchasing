@@ -73,7 +73,7 @@ $('approverInfo').textContent='Original approver: '+(r.originalApprover||'—')+
 if(d.status!=='Pending Approval')$('controls').classList.add('hide');
 }catch(e){$('notice').textContent=e.message}}
 async function decide(value){if(!confirm('Confirm '+value+'? This decision cannot be undone.'))return;$('approve').disabled=$('reject').disabled=$('redirect').disabled=true;try{const d=await api('decide',{decision:value,note:$('note').value});$('state').textContent=d.status;
-$('approverInfo').textContent='Original approver: '+(r.originalApprover||'—')+' | Current approver: '+(r.currentApprover||'—');$('controls').classList.add('hide');$('notice').textContent='Decision recorded successfully.'}catch(e){alert(e.message);$('approve').disabled=$('reject').disabled=$('redirect').disabled=false}}
+$('controls').classList.add('hide');$('notice').textContent='Decision recorded successfully.'}catch(e){alert(e.message);$('approve').disabled=$('reject').disabled=$('redirect').disabled=false}}
 $('redirect').onclick=()=>{$('redirectPanel').classList.remove('hide');loadRedirectEmails();$('newApproverEmail').focus()};
 $('cancelRedirect').onclick=()=>{$('redirectPanel').classList.add('hide')};
 $('confirmRedirect').onclick=async()=>{
