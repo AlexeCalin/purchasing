@@ -133,7 +133,22 @@ table.items .item-vat-ron{min-width:0;white-space:normal;overflow-wrap:anywhere}
 #requestForm .items tr.supplier-selected input,
 #requestForm .items tr.supplier-selected textarea,
 #requestForm .items tr.supplier-selected .item-vat-ron{background:#c6f3ce!important}
-</style></head><body>
+</style><style id="alternative-name-editing-clarity">
+/* Supplier alternative names are independent, user-editable fields. */
+#requestForm #itemRows tr.alternative-row textarea.alt-editable-name{
+  pointer-events:auto!important;user-select:text!important;cursor:text!important;
+  background:rgba(54,151,224,.075)!important;
+  border:1px solid rgba(46,131,201,.40)!important;
+  min-height:38px;resize:vertical;
+}
+#requestForm #itemRows tr.alternative-row textarea.alt-editable-name:focus{
+  outline:2px solid rgba(45,133,213,.5)!important;
+}
+#requestForm #itemRows tr.supplier-selected textarea.alt-editable-name{
+  background:transparent!important;
+}
+</style>
+</head><body>
 <div id="loginPage" class="login"><form id="loginForm" class="login-card"><h1>Purchasing</h1><p>Purchase Request Management</p><label class="field">Password<input id="password" type="password" required autocomplete="current-password" placeholder="Enter password"><label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:12px;color:#355c70;font-weight:400"><input id="showLoginPassword" type="checkbox" style="width:auto"> Show password</label></label><p id="loginError" class="small" style="color:#a32727"></p><button class="primary" style="width:100%">Log in</button><a href="https://alexecalin.github.io/" class="secondary" style="display:block;text-align:center;text-decoration:none;margin-top:12px;font-weight:700">← Back to Main Portal</a><p class="small">Authorized personnel only</p></form></div>
 <div id="app" class="app hidden"><header class="top"><div class="top-left"><div><div class="brand">Purchasing</div><div class="small">Purchase Request Management</div></div><div class="fx-inline" aria-label="Currency converter">
 <label>Amount<input id="fxAmount" type="number" min="0" step="any" value="100" aria-label="Amount to convert"></label>
@@ -241,7 +256,7 @@ function addAlternative(base){
  const n=rows.length;
  const tr=document.createElement('tr');tr.className='alternative-row';tr.dataset.group=group;tr.dataset.variant=String(n);
  if(base.classList.contains('hidden'))tr.classList.add('hidden');
- tr.innerHTML=`<td><span class="alt-number">${group}.${n}</span><button type="button" class="remove-alternative" title="Remove alternative" aria-label="Remove supplier alternative">✕</button></td><td><textarea class="item-name" rows="1" maxlength="200" aria-label="Alternative item name">${escapeHtmlAlt(base.querySelector('.item-name').value||'')}</textarea></td><td><span class="alt-inherited">${escapeHtmlAlt(base.querySelector('.item-purpose').value||'—')}</span></td><td><span class="alt-inherited alt-qty">${escapeHtmlAlt(base.querySelector('.item-qty').value||'—')}</span></td><td><input class="item-price" type="number" min="0" step="any"></td><td><input class="item-price-vat" type="number" min="0" step="any"></td><td><input class="item-total" readonly></td><td><input class="item-total-vat" readonly></td><td class="item-vat-ron">—</td><td><input class="item-supplier" maxlength="200" placeholder="Alternative supplier"><label class="choose-label"><input type="checkbox" class="item-chosen"> Select</label></td>`;
+ tr.innerHTML=`<td><span class="alt-number">${group}.${n}</span><button type="button" class="remove-alternative" title="Remove alternative" aria-label="Remove supplier alternative">✕</button></td><td><textarea class="item-name alt-editable-name" rows="1" maxlength="200" aria-label="Edit item name for alternative ${group}.${n}" title="Edit item name for alternative ${group}.${n}" placeholder="Edit item name for ${group}.${n}">${escapeHtmlAlt(base.querySelector('.item-name').value||'')}</textarea></td><td><span class="alt-inherited">${escapeHtmlAlt(base.querySelector('.item-purpose').value||'—')}</span></td><td><span class="alt-inherited alt-qty">${escapeHtmlAlt(base.querySelector('.item-qty').value||'—')}</span></td><td><input class="item-price" type="number" min="0" step="any"></td><td><input class="item-price-vat" type="number" min="0" step="any"></td><td><input class="item-total" readonly></td><td><input class="item-total-vat" readonly></td><td class="item-vat-ron">—</td><td><input class="item-supplier" maxlength="200" placeholder="Alternative supplier"><label class="choose-label"><input type="checkbox" class="item-chosen"> Select</label></td>`;
  rows[rows.length-1].after(tr);resizeItemDescription(tr.querySelector('.item-name'));compute();
 }
 function escapeHtmlAlt(x){return String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
