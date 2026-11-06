@@ -13,9 +13,19 @@ button:disabled{opacity:.5}button.reject{background:#ae3333}button.redirect{back
 .table-wrap{overflow-x:auto}
 table{border-collapse:collapse;width:100%;min-width:720px}
 td,th{padding:9px;border:1px solid #c6dbe6;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#dcebf6;color:#134d70;white-space:normal}tbody tr:nth-child(even){background:#f3f9fd}tbody tr.supplier-selected{background:#c7f1d2!important;color:#14552b;font-weight:700}tbody tr.supplier-alternative:not(.supplier-selected){background:#f0f6fb}td.number{font-weight:700;white-space:nowrap}td.money{text-align:right;white-space:nowrap} .selected-legend{font-size:13px;color:#236943;margin:10px 0}
+/* Same alignment as the Purchasing printable view. */
+#items td.number{width:76px;min-width:76px;box-sizing:border-box;white-space:nowrap}
+#items tr:not(.supplier-alternative) td.number{text-align:left!important;padding-left:6px!important}
+#items tr.supplier-alternative td.number{text-align:right!important;padding-right:5px!important;padding-left:2px!important}
+/* One transparent watermark across the whole alternative row, not inside the number cell. */
+#items tr.supplier-alternative{position:relative}
+#items tr.supplier-alternative::after{content:attr(data-offer-watermark);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;overflow:hidden;font-size:clamp(15px,2vw,28px);font-weight:700;color:rgba(0,0,0,.14);pointer-events:none;z-index:2}
+#items tr.supplier-alternative td{position:relative;z-index:1}
+@media print{#items tr.supplier-alternative::after{color:rgba(0,0,0,.16)!important}#items td.number{width:76px;min-width:76px}}
 textarea{width:100%;min-height:80px;box-sizing:border-box}
 #notice{padding:12px;background:#edf5fb;margin:15px 0;white-space:pre-wrap}
 .hide{display:none}
+@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}thead{display:table-header-group}tr{break-inside:avoid}.supplier-selected,.supplier-selected td{background-color:#b7efc3!important;color:#174d29!important}.supplier-alternative:not(.supplier-selected),.supplier-alternative:not(.supplier-selected) td{background-color:#eaf4ff!important}#controls,button{display:none!important}}
 </style>
 </head>
 <body>
@@ -28,7 +38,7 @@ textarea{width:100%;min-height:80px;box-sizing:border-box}
 <div class="table-wrap"><table>
 <thead><tr><th>#</th><th>Item Name</th><th>Necessary for</th><th>No. of pcs</th><th>Price/Pcs Without VAT</th><th>Price/Pcs With VAT</th><th>Total price Without VAT</th><th>Total price With VAT</th><th>Currency</th><th>Supplier / Selected</th></tr></thead>
 <tbody id="items"></tbody>
-</table></div><p class="selected-legend">Green row = supplier selected by the requester. Alternatives are numbered 1.1, 1.2, etc.</p>
+</table></div><p class="selected-legend">Green row = supplier selected by the requester. Alternatives are numbered 1.2, 1.3, etc.</p>
 <h3 id="total"></h3>
 <h3>Selected supplier and justification</h3>
 <p id="reason"></p>
@@ -79,7 +89,8 @@ for(const [group,options] of [...groups].sort((a,b)=>a[0]-b[0])){
   const tr=document.createElement('tr');
   if(x.selected===true)tr.classList.add('supplier-selected');
   if(variant>0)tr.classList.add('supplier-alternative');
-  const number=variant>0?group+'.'+variant:String(group);
+  const number=variant>0?group+'.'+(variant+1):String(group);
+  if(variant>0){const lang=(()=>{try{return localStorage.getItem('purchasing_ui_language')==='ro'?'ro':'en'}catch{return 'en'}})();tr.dataset.offerWatermark=lang==='ro'?`Oferta ${variant+1} la punctul ${group}`:`Offer ${variant+1} for item ${group}`;}
   const values=[number,x.name||'—',x.purpose||'—',qty,money(unit),money(unit*1.21),money(qty*unit),money(qty*unit*1.21),r.currency||'—',(x.chosenSupplier||'—')+(x.selected===true?' ✓ SELECTED':'')];
   values.forEach((v,j)=>{const td=document.createElement('td');td.textContent=String(v);if(j===0)td.className='number';if(j>=4&&j<=7)td.className='money';tr.append(td)});
   $('items').append(tr);
