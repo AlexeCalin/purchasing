@@ -723,7 +723,7 @@ async function purchaseChatLoad(scope,requestId,mount){
   const finish=root.querySelector('.purchase-chat-finish');if(finish)finish.classList.toggle('hidden',scope==='general'||closed);
   if(closed)purchaseChatClosed.add(requestId);
   const messages=Array.isArray(result.messages)?result.messages:[];
-  log.innerHTML=messages.length?messages.map(m=>`<div class="purchase-chat-msg"><button type="button" class="purchase-chat-delete" data-id="${Number(m.id)}" title="Delete this message">✕ Delete</button><div class="purchase-chat-meta"><b>${purchaseChatEscape(m.sender_name)}</b> · ${purchaseChatEscape(new Date(m.created_at).toLocaleString('ro-RO'))}</div><div class="purchase-chat-text">${purchaseChatEscape(m.message)}</div></div>`).join(''):'No messages yet.';
+  log.innerHTML=messages.length?messages.map(m=>`<div class="purchase-chat-msg">${closed?'':`<button type="button" class="purchase-chat-delete" data-id="${Number(m.id)}" title="Delete this message">✕ Delete</button>`}<div class="purchase-chat-meta"><b>${purchaseChatEscape(m.sender_name)}</b> · ${purchaseChatEscape(new Date(m.created_at).toLocaleString('ro-RO'))}</div><div class="purchase-chat-text">${purchaseChatEscape(m.message)}</div></div>`).join(''):'No messages yet.';
   log.scrollTop=log.scrollHeight;
  }catch(e){if(log.isConnected)log.textContent='Could not load messages: '+e.message}
 }
@@ -739,6 +739,7 @@ async function purchaseChatFinish(requestId,mount){
  }catch(e){if(status){status.textContent='Could not close chat: '+e.message;status.classList.add('purchase-chat-error')}else alert(e.message)}
 }
 async function purchaseChatDelete(scope,requestId,mount,id){
+ if(scope==='request'&&purchaseChatClosed.has(requestId)){alert('This chat is closed. Messages cannot be deleted.');return;}
  if(!/^\d+$/.test(String(id)))return;
  if(!confirm('Delete this message permanently for all users?'))return;
  const root=$(mount),status=root?.querySelector('#purchaseChatStatus');
