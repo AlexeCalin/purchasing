@@ -203,6 +203,10 @@ table.items .item-vat-ron{min-width:0;white-space:normal;overflow-wrap:anywhere}
 .purchase-chat-log{height:235px;padding:8px}
 .purchase-chat-delete{float:right;margin-left:8px;border:1px solid #e5b8b8;background:#fff2f2;color:#a52424;border-radius:4px;font-size:11px;padding:3px 6px;cursor:pointer}
 .purchase-chat-msg:after{content:'';display:block;clear:both}
+.purchase-chat-finish{font-size:10px!important;padding:3px 6px!important;border:1px solid #b6c6d0!important;background:#f4f6f8!important;color:#425569!important;border-radius:4px!important}
+.purchase-chat-finish.hidden{display:none!important}
+.purchase-chat-closed-banner{font-size:12px;padding:8px;background:#f0f2f4;color:#465666;border-radius:5px;margin:7px 0}
+.purchase-chat.closed .purchase-chat-controls{display:none}
 </style><style id="purchase-chat-indicator-style">
 .purchase-chat-alert{border:1px solid #d69a16;background:#fff8df;color:#aa6000;border-radius:6px;padding:6px 9px;font-size:18px;line-height:1;cursor:pointer}
 .purchase-chat-alert:hover{background:#ffe8a4}
@@ -673,11 +677,11 @@ document.getElementById('removeSavedRedirectEmail').onclick=()=>deleteSavedRedir
 renderRedirectEmails();
 
 // Chat indicators in Overview and Archive: show only when the request has at least one message.
-let purchaseChatCounts=new Set();
+let purchaseChatCounts=new Set(),purchaseChatClosed=new Set();
 async function purchaseChatRefreshIndicators(){
  if(!isCloud())return;
- try{const data=await api('chatCounts');purchaseChatCounts=new Set(Array.isArray(data.requestIds)?data.requestIds:[]);
- document.querySelectorAll('.purchase-chat-alert').forEach(b=>{const has=purchaseChatCounts.has(b.dataset.id);b.classList.toggle('has-messages',has);b.title=has?'Open chat: messages available':'Open request chat'})}
+ try{const data=await api('chatCounts');purchaseChatCounts=new Set(Array.isArray(data.requestIds)?data.requestIds:[]);purchaseChatClosed=new Set(Array.isArray(data.closedRequestIds)?data.closedRequestIds:[]);
+ document.querySelectorAll('.purchase-chat-alert').forEach(b=>{const has=purchaseChatCounts.has(b.dataset.id)&&!purchaseChatClosed.has(b.dataset.id);b.classList.toggle('has-messages',has);b.title=purchaseChatClosed.has(b.dataset.id)?'Chat closed (read only)':has?'Open chat: messages available':'Open request chat'})}
  catch(e){console.warn('Chat indicators unavailable:',e)}
 }
 function purchaseChatOpenFromRow(id){
@@ -696,11 +700,13 @@ function purchaseChatOpen(scope,requestId,mount){
  const root=$(mount);if(!root)return;
  purchaseChatScope=scope;purchaseChatRequestId=requestId;purchaseChatMount=mount;
  const name=sessionStorage.getItem(purchaseChatNameKey)||'';
- root.innerHTML=`<div class="purchase-chat collapsed"><div class="purchase-chat-header"><button class="purchase-chat-expand" type="button" aria-expanded="false">💬 ${scope==='general'?'General Chat':'Chat '+purchaseChatEscape(requestId)}</button><button class="purchase-chat-close hidden" type="button" title="Minimize chat" aria-label="Minimize chat">✕</button></div><div class="purchase-chat-body"><div class="purchase-chat-name"><label for="purchaseChatName" class="small">Your display name</label><input id="purchaseChatName" maxlength="80" placeholder="Enter your name" value="${purchaseChatEscape(name)}"><span class="purchase-chat-status">Names are not verified.</span></div><div class="purchase-chat-header" style="justify-content:flex-end;margin-bottom:7px"><button type="button" class="secondary" id="purchaseChatRefresh">Refresh messages</button></div><div class="purchase-chat-log" id="purchaseChatLog" aria-live="polite">Open chat to load messages.</div><div class="purchase-chat-controls"><textarea id="purchaseChatText" maxlength="2000" placeholder="Write a message (max 2000 characters)"></textarea><button class="primary" type="button" id="purchaseChatSend">Send</button></div><div class="purchase-chat-status" id="purchaseChatStatus"></div></div></div>`;
+ root.innerHTML=`<div class="purchase-chat collapsed"><div class="purchase-chat-header"><button class="purchase-chat-expand" type="button" aria-expanded="false">💬 ${scope==='general'?'General Chat':'Chat '+purchaseChatEscape(requestId)}</button><button class="purchase-chat-finish ${scope==='general'?'hidden':''}" type="button" title="Close this request chat permanently">Close chat</button><button class="purchase-chat-close hidden" type="button" title="Minimize chat" aria-label="Minimize chat">✕</button></div><div class="purchase-chat-body"><div class="purchase-chat-name"><label for="purchaseChatName" class="small">Your display name</label><input id="purchaseChatName" maxlength="80" placeholder="Enter your name" value="${purchaseChatEscape(name)}"><span class="purchase-chat-status">Names are not verified.</span></div><div class="purchase-chat-header" style="justify-content:flex-end;margin-bottom:7px"><button type="button" class="secondary" id="purchaseChatRefresh">Refresh messages</button></div><div class="purchase-chat-log" id="purchaseChatLog" aria-live="polite">Open chat to load messages.</div><div class="purchase-chat-closed-banner hidden">This chat is closed. Messages remain available to read.</div><div class="purchase-chat-controls"><textarea id="purchaseChatText" maxlength="2000" placeholder="Write a message (max 2000 characters)"></textarea><button class="primary" type="button" id="purchaseChatSend">Send</button></div><div class="purchase-chat-status" id="purchaseChatStatus"></div></div></div>`;
  const panel=root.querySelector('.purchase-chat');
  const toggle=(expand)=>{panel.classList.toggle('collapsed',!expand);root.querySelector('.purchase-chat-expand').setAttribute('aria-expanded',String(expand));root.querySelector('.purchase-chat-close').classList.toggle('hidden',!expand);if(expand)purchaseChatLoad(scope,requestId,mount)};
  root.querySelector('.purchase-chat-expand').onclick=()=>toggle(panel.classList.contains('collapsed'));
  root.querySelector('.purchase-chat-close').onclick=()=>toggle(false);
+ const finish=root.querySelector('.purchase-chat-finish');
+ if(scope==='request')finish.onclick=()=>purchaseChatFinish(requestId,mount);
  root.querySelector('#purchaseChatRefresh').onclick=()=>purchaseChatLoad(scope,requestId,mount);
  root.querySelector('#purchaseChatSend').onclick=()=>purchaseChatSend(scope,requestId,mount);
  root.querySelector('#purchaseChatLog').addEventListener('click',e=>{const button=e.target.closest('.purchase-chat-delete');if(button)purchaseChatDelete(scope,requestId,mount,button.dataset.id)});
@@ -711,10 +717,26 @@ async function purchaseChatLoad(scope,requestId,mount){
  try{
   const result=await api('chatList',{scope,requestId});
   if(sequence!==purchaseChatSequence||!log.isConnected)return;
+  const closed=scope==='request'&&result.closed===true;
+  root.querySelector('.purchase-chat')?.classList.toggle('closed',closed);
+  root.querySelector('.purchase-chat-closed-banner')?.classList.toggle('hidden',!closed);
+  const finish=root.querySelector('.purchase-chat-finish');if(finish)finish.classList.toggle('hidden',scope==='general'||closed);
+  if(closed)purchaseChatClosed.add(requestId);
   const messages=Array.isArray(result.messages)?result.messages:[];
   log.innerHTML=messages.length?messages.map(m=>`<div class="purchase-chat-msg"><button type="button" class="purchase-chat-delete" data-id="${Number(m.id)}" title="Delete this message">✕ Delete</button><div class="purchase-chat-meta"><b>${purchaseChatEscape(m.sender_name)}</b> · ${purchaseChatEscape(new Date(m.created_at).toLocaleString('ro-RO'))}</div><div class="purchase-chat-text">${purchaseChatEscape(m.message)}</div></div>`).join(''):'No messages yet.';
   log.scrollTop=log.scrollHeight;
  }catch(e){if(log.isConnected)log.textContent='Could not load messages: '+e.message}
+}
+async function purchaseChatFinish(requestId,mount){
+ if(!confirm('Close this request chat? Nobody will be able to send new messages. The history will remain visible.'))return;
+ const root=$(mount),status=root?.querySelector('#purchaseChatStatus');
+ try{
+  await api('chatClose',{requestId});
+  purchaseChatClosed.add(requestId);
+  await purchaseChatLoad('request',requestId,mount);
+  await purchaseChatRefreshIndicators();
+  if(status)status.textContent='Chat closed. New messages are disabled.';
+ }catch(e){if(status){status.textContent='Could not close chat: '+e.message;status.classList.add('purchase-chat-error')}else alert(e.message)}
 }
 async function purchaseChatDelete(scope,requestId,mount,id){
  if(!/^\d+$/.test(String(id)))return;
@@ -724,6 +746,7 @@ async function purchaseChatDelete(scope,requestId,mount,id){
  catch(e){if(status){status.textContent='Could not delete message: '+e.message;status.classList.add('purchase-chat-error')}else alert(e.message)}
 }
 async function purchaseChatSend(scope,requestId,mount){
+ if(scope==='request'&&purchaseChatClosed.has(requestId)){alert('This chat is closed.');return;}
  const root=$(mount);if(!root)return;
  const name=root.querySelector('#purchaseChatName')?.value.trim()||'';
  const message=root.querySelector('#purchaseChatText')?.value.trim()||'';
