@@ -731,7 +731,7 @@ async function purchaseChatFinish(requestId,mount){
  if(!confirm('Close this request chat? Nobody will be able to send new messages. The history will remain visible.'))return;
  const root=$(mount),status=root?.querySelector('#purchaseChatStatus');
  try{
-  await api('chatClose',{requestId});
+  await api('chatClose',{scope:'request',requestId});
   purchaseChatClosed.add(requestId);
   await purchaseChatLoad('request',requestId,mount);
   await purchaseChatRefreshIndicators();
